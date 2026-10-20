@@ -189,11 +189,3 @@ PostgreSQL 数据卷为 `studyflow_studyflow-postgres-data`，容器为 `studyfl
 - 没有 3D 小岛、OSS 头像、自动周报推送、复杂文档工作室。围绕学习闭环完成可验证的核心实现。
 
 优先演进：真实资料质量评测与性能基准 → 数据库倒排检索 → 后台索引任务 → Redis 跨进程广播与限流 → 前端模块化与组件框架。
-
-## 8. 求职展示
-
-详见 [简历描述、五分钟演示与面试问题](docs/PORTFOLIO.md)。按自己实际理解、参与与部署情况调整，不把尚未接入的基础设施写成已完成，也不虚构效果提升数字。
-
-首次体验可按 [三分钟演示说明](docs/DEMO.md) 操作。仓库提供 [FastAPI 示例资料](examples/knowledge/fastapi-notes.md) 和 [RAG 示例资料](examples/knowledge/rag-notes.md)，不含真实用户数据。Linux / macOS 可在 Python 3.12+ 与 Docker 就绪后执行 `sh start.sh`。
-
-参考实现与许可证说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。框架用法参考 [FastAPI 生命周期与测试文档](https://fastapi.tiangolo.com/advanced/testing-events/) 和 [SQLAlchemy Session 文档](https://docs.sqlalchemy.org/en/20/orm/session_basics.html)。
