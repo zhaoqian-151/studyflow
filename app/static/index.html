@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f6f7f2"><meta name="description" content="StudyFlow：把学习目标变成行动，连接计划、专注和知识。">
+  <title>StudyFlow · 让学习有迹可循</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23264738'/%3E%3Cpath d='M16 42V22l16 8 16-8v20l-16 8z' fill='%23d1e9a4'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/styles.css"><script defer src="/static/app.js"></script>
+</head>
+<body>
+  <div id="auth" class="auth-screen" hidden></div>
+  <div id="shell" class="shell" hidden>
+    <aside class="sidebar">
+      <a class="brand" href="#dashboard"><span class="brand-mark">S</span>StudyFlow<span class="brand-dot">●</span></a>
+      <div class="workspace-label">PERSONAL WORKSPACE</div>
+      <nav id="navigation" aria-label="主导航"></nav>
+      <div class="sidebar-bottom"><div class="small-label">一点一滴，积累成山</div><p>给每一次认真学习，<br>留下一点生长的痕迹。</p><div class="growth-line"><span></span><span></span><span></span><span></span><span></span></div></div>
+      <button id="profile-button" class="profile" data-action="settings"><span id="avatar" class="avatar">S</span><span><strong id="profile-name"></strong><small>我的学习空间</small></span><span class="profile-more">↗</span></button>
+    </aside>
+    <div class="workspace">
+      <header class="topbar"><div class="breadcrumb">我的空间 <span>/</span> <strong id="page-label">学习概览</strong></div><div class="topbar-right"><span id="today-label"></span><span class="status-dot"></span><span id="mode-label">本地规则模式</span><a href="/docs" target="_blank" rel="noopener" class="api-link">API ↗</a></div></header>
+      <main id="main" tabindex="-1"></main>
+      <footer>STUDYFLOW <span>保持好奇，持续生长。</span><span>FastAPI + Python</span></footer>
+    </div>
+  </div>
+  <dialog id="modal"><div id="modal-content"></div></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+</body></html>
