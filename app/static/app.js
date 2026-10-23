@@ -111,8 +111,9 @@ function chatMessage(m) { return `<div class="chat-message ${m.user_id===state.u
 function settingsView() { return heading('MAKE IT YOUR OWN','我的学习空间','让教练更了解你，给自己更合适的学习节奏。')+`<section class="panel padded"><form id="settings-form" class="settings-form"><label>昵称<input value="${e(state.user.name)}" disabled></label><label>邮箱<input value="${e(state.user.email)}" disabled></label><label>学习偏好与长期目标<textarea name="preference" rows="5" maxlength="1000" placeholder="例如：每晚可学习一小时，偏好项目实践，目标是 AI 应用开发岗位。">${e(state.user.preference)}</textarea></label><p class="subtitle">你主动填写的偏好会保存在账户中，并在生成计划时作为上下文使用。</p><button class="button primary" type="submit">保存学习偏好</button></form><div class="mode-info"><span>规划模式：${state.cap.ai_mode==='llm'?'语言模型 · '+e(state.cap.model):'本地规则'}</span><span>知识检索：${state.cap.retrieval_mode==='hybrid'?'BM25 + 向量混合检索':'本地 BM25 关键词检索'}</span><span>今日请求：${state.cap.requests_today} / ${state.cap.daily_limit}</span></div>${button('退出登录','logout','ghost','arrow')}</section>`; }
 
 async function refresh() { const [s,p,c,f] = await Promise.all([api('/stats'),api('/plans'),api('/capabilities'),api('/focus/active')]); Object.assign(state,{stats:s,plans:p,cap:c,focus:f}); }
-async function render() {
+async function render(options = {}) {
   if (!state.user) return;
+  const preserveScroll = options.preserveScroll === true;
   const token = ++renderToken;
   state.page = location.hash.slice(1) || 'dashboard';
   if (![...nav.map(n=>n[0]),'settings'].includes(state.page)) state.page='dashboard';
@@ -120,7 +121,7 @@ async function render() {
   clearTimeout(reconnectTimer);
   $('#page-label').textContent = nav.find(n=>n[0]===state.page)?.[1] || '我的学习空间';
   $('#navigation').innerHTML=nav.map(([id,label])=>`<a href="#${id}" aria-label="${label}" class="nav-link ${state.page===id?'active':''}" ${state.page===id?'aria-current="page"':''}>${icon(id)}<span>${label}</span>${id==='agent'?'<span class="nav-tag">AI</span>':''}</a>`).join('');
-  $('#main').innerHTML='<div class="loading"><span class="spinner"></span> 正在整理你的学习空间…</div>';
+  if(!preserveScroll) $('#main').innerHTML='<div class="loading"><span class="spinner"></span> 正在整理你的学习空间…</div>';
   try {
     await refresh();
     const page=state.page;
@@ -130,10 +131,17 @@ async function render() {
     if(token!==renderToken) return;
     $('#mode-label').textContent=state.cap.ai_mode==='llm'?'AI 已连接':'本地规则模式';
     const views={dashboard,plans:plansView,focus:focusView,knowledge:knowledgeView,agent:agentView,stats:statsView,community:communityView,settings:settingsView};
+    // Keep the current list while fetching; collapsing it into a loader resets browser scroll.
+    const scrollPosition = preserveScroll ? [window.scrollX, window.scrollY] : null;
     $('#main').innerHTML=views[page]();
+    if(scrollPosition) window.scrollTo(...scrollPosition);
     if(page==='focus') {if(state.selectedTask&&!state.focus)$('#focus-task').value=state.selectedTask;tick();}
     if(page==='community') connectChat();
-  } catch(error) { if(token===renderToken) $('#main').innerHTML=`<section class="panel">${empty(e(error.message))}<div style="text-align:center;padding-bottom:24px">${button('重新加载','reload','ghost','arrow')}</div></section>`; }
+  } catch(error) {
+    if(token!==renderToken) return;
+    if(preserveScroll) toast(error.message);
+    else $('#main').innerHTML=`<section class="panel">${empty(e(error.message))}<div style="text-align:center;padding-bottom:24px">${button('重新加载','reload','ghost','arrow')}</div></section>`;
+  }
 }
 function go(page) { if(location.hash==='#'+page) render(); else location.hash=page; }
 function showAuth() {
@@ -223,7 +231,7 @@ document.addEventListener('click',async event=>{
     if(action==='reject-run')await post('/agent/runs/'+id+'/reject');
     if(action==='seed'){await seed();return;}
     if(action==='logout'){await post('/auth/logout');showAuth();return;}
-    await render();
+    await render({preserveScroll:action==='toggle-task'});
   }catch(error){toast(error.message);}finally{target.disabled=false;}
 });
 document.addEventListener('submit',async event=>{

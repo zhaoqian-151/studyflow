@@ -75,6 +75,78 @@ try:
         expect(page.get_by_role("heading", name="构建我的第一个 AI 学习助手")).to_be_visible()
         page.get_by_role("button", name="完成任务", exact=True).first.click()
         expect(page.get_by_role("button", name="取消完成", exact=True)).to_have_count(1)
+
+        # A long real plan reproduces the scroll collapse caused by the loading placeholder.
+        response = page.request.post(
+            base + "/api/plans",
+            data={
+                "title": "滚动位置回归计划",
+                "tasks": [{"title": f"滚动验证任务 {index + 1}", "minutes": 25} for index in range(30)],
+            },
+        )
+        assert response.status == 201
+        scroll_plan = response.json()
+        task_id = scroll_plan["tasks"][20]["id"]
+        page.reload()
+        expect(page.get_by_role("heading", name=scroll_plan["title"], exact=True)).to_be_visible()
+
+        def delayed_stats(route):
+            result = route.fetch()
+            time.sleep(0.15)
+            route.fulfill(response=result)
+
+        page.route("**/api/stats", delayed_stats)
+        scroll_checks = []
+        for viewport in [{"width": 1440, "height": 1000}, {"width": 390, "height": 844}]:
+            page.set_viewport_size(viewport)
+            task_button = page.locator(f'[data-action="toggle-task"][data-id="{task_id}"]')
+            task_button.evaluate("element => element.scrollIntoView({block: 'center'})")
+            page.evaluate("() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))")
+            assert page.evaluate("scrollY > 400"), "Scroll regression needs a genuinely scrolled page"
+            for done in [True, False]:
+                page.evaluate("""() => {
+                    window.scrollProbe = {start: scrollY, samples: [scrollY], active: true};
+                    function sample() {
+                        if (!window.scrollProbe.active) return;
+                        window.scrollProbe.samples.push(scrollY);
+                        requestAnimationFrame(sample);
+                    }
+                    requestAnimationFrame(sample);
+                }""")
+                task_button.click()
+                expect(task_button).to_have_attribute("data-done", str(done).lower())
+                expect(task_button).to_be_enabled()
+                page.evaluate(
+                    "() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"
+                )
+                probe = page.evaluate("""() => {
+                    window.scrollProbe.active = false;
+                    return {...window.scrollProbe, end: scrollY};
+                }""")
+                movement = max(abs(value - probe["start"]) for value in probe["samples"] + [probe["end"]])
+                assert movement <= 2, f"Task completion moved the page by {movement}px: {probe}"
+                current_plan = next(
+                    p for p in page.request.get(base + "/api/plans").json() if p["id"] == scroll_plan["id"]
+                )
+                assert current_plan["tasks"][20]["done"] is done
+                card = task_button.locator("xpath=ancestor::section[contains(@class, 'plan-card')]")
+                expect(card.locator(".progress-label")).to_contain_text(f"{1 if done else 0} / 30")
+                scroll_checks.append({"width": viewport["width"], "done": done, "movement_px": movement})
+
+        page.route(
+            f"**/api/tasks/{task_id}",
+            lambda route: route.fulfill(status=500, json={"detail": "任务保存失败，请重试"}),
+        )
+        failed_scroll = page.evaluate("scrollY")
+        task_button.click()
+        expect(page.locator("#toast")).to_contain_text("任务保存失败")
+        expect(task_button).to_have_attribute("data-done", "false")
+        expect(task_button).to_be_enabled()
+        assert abs(page.evaluate("scrollY") - failed_scroll) <= 2
+        page.unroute(f"**/api/tasks/{task_id}")
+        page.unroute("**/api/stats", delayed_stats)
+        assert page.request.delete(base + "/api/plans/" + scroll_plan["id"]).status == 204
+        page.set_viewport_size({"width": 1440, "height": 1000})
         page.get_by_role("link", name="学习概览", exact=True).click()
         expect(page.get_by_role("heading", name="接下来的小目标")).to_be_visible()
         page.locator("#toast").evaluate("element => element.classList.remove('show')")
@@ -124,7 +196,17 @@ try:
             assert page.evaluate("document.documentElement.scrollWidth <= innerWidth"), f"Mobile overflow on {name}"
         browser.close()
     assert not errors, errors
-    print(json.dumps({"status": "passed", "javascript_errors": errors, "screenshots": str(OUTPUT)}, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "status": "passed",
+                "scroll_checks": scroll_checks,
+                "javascript_errors": errors,
+                "screenshots": str(OUTPUT),
+            },
+            ensure_ascii=False,
+        )
+    )
 finally:
     server.terminate()
     server.wait(timeout=10)
