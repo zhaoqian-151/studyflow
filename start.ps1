@@ -12,8 +12,10 @@ if ($LASTEXITCODE -ne 0) {
 }
 & $projectPython scripts/setup_postgres.py
 if ($LASTEXITCODE -ne 0) { throw 'Failed to prepare PostgreSQL configuration.' }
-$localDatabase = & $projectPython -c 'from app.config import settings; from sqlalchemy.engine import make_url; u=make_url(settings.database_url); print(int(u.get_backend_name() == "postgresql" and u.host in ("127.0.0.1", "localhost") and u.port == 5433))'
-if ($localDatabase -eq '1') {
+$databaseStatusJson = & $projectPython scripts/database_status.py
+if ($LASTEXITCODE -ne 0) { throw 'Failed to read database configuration. Check DATABASE_URL in .env.' }
+$databaseStatus = $databaseStatusJson | ConvertFrom-Json
+if ($databaseStatus.start_local_postgres) {
     $dockerCommand = Get-Command docker -ErrorAction SilentlyContinue
     $dockerExecutable = if ($dockerCommand) { $dockerCommand.Source } else { Join-Path $env:LOCALAPPDATA 'Programs\DockerDesktop\resources\bin\docker.exe' }
     if (-not (Test-Path -LiteralPath $dockerExecutable)) {
@@ -23,10 +25,10 @@ if ($localDatabase -eq '1') {
     & $dockerExecutable compose up -d --wait postgres
     if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL startup failed. Check Docker Desktop.' }
 }
-$postgresDatabase = & $projectPython -c 'from app.config import settings; from sqlalchemy.engine import make_url; print(int(make_url(settings.database_url).get_backend_name() == "postgresql"))'
-if ($postgresDatabase -eq '1') {
+if ($databaseStatus.backend -eq 'postgresql') {
     & $projectPython -m alembic upgrade head
     if ($LASTEXITCODE -ne 0) { throw 'Database migration failed.' }
 }
-Write-Host 'StudyFlow: http://127.0.0.1:8000 | API: http://127.0.0.1:8000/docs'
+Write-Host 'Starting StudyFlow: http://127.0.0.1:8000 | API: http://127.0.0.1:8000/docs'
 & $projectPython -m uvicorn app.main:app --reload --reload-include '.env' --host 127.0.0.1 --port 8000 --ws-max-size 8192
+if ($LASTEXITCODE -ne 0) { throw 'StudyFlow failed to start. See the error above.' }

@@ -6,6 +6,18 @@ concurrency:
   group: checks-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  windows-startup:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: pip install -r requirements.lock.txt
+      - name: Windows PowerShell and PowerShell 7 startup regression
+        run: pytest tests/test_startup.py -q
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
